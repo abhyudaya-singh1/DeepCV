@@ -11,6 +11,7 @@ export default function Home() {
   const [questions, setQuestions] = useState(null);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [answers, setAnswers] = useState({});
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [evaluation, setEvaluation] = useState(null);
   const [evaluationLoading, setEvaluationLoading] = useState(false);
 
@@ -46,6 +47,7 @@ export default function Home() {
     setQuestionsLoading(true);
     setError(null);
     setAnswers({});
+    setCurrentQuestionIndex(0);
     setEvaluation(null);
 
     try {
@@ -112,6 +114,7 @@ export default function Home() {
           setSelectedTopics([]);
           setQuestions(null);
           setAnswers({});
+          setCurrentQuestionIndex(0);
           setEvaluation(null);
         }}
       />
@@ -161,7 +164,7 @@ export default function Home() {
             </div>
           )}
 
-          {result.topics && (
+          {result.topics && !questions && (
             <div style={{ background: '#fef9e7', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', color: '#111' }}>
               <h4 style={{ margin: '0 0 0.5rem' }}>Choose topics to be interviewed on</h4>
               {result.topics.map((topic) => (
@@ -185,30 +188,45 @@ export default function Home() {
             </div>
           )}
 
-          {questions && (
+          {questions && !evaluation && (
             <div style={{ background: '#f0fdf4', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', color: '#111' }}>
-              <h4 style={{ margin: '0 0 0.5rem' }}>Interview Questions</h4>
-              {questions.map((question, i) => (
-                <div key={question} style={{ marginBottom: '1rem' }}>
-                  <p style={{ margin: '0 0 0.3rem' }}>
-                    <strong>{i + 1}.</strong> {question}
-                  </p>
-                  <textarea
-                    value={answers[question] || ''}
-                    onChange={(e) => handleAnswerChange(question, e.target.value)}
-                    placeholder="Type your answer..."
-                    rows={3}
-                    style={{ width: '100%', padding: '0.5rem', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                  />
-                </div>
-              ))}
-              <button
-                onClick={handleSubmitEvaluation}
-                disabled={!allAnswered || evaluationLoading}
-                style={{ marginTop: '0.5rem' }}
-              >
-                {evaluationLoading ? 'Evaluating...' : 'Submit for Evaluation'}
-              </button>
+              <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', opacity: 0.7 }}>
+                Question {currentQuestionIndex + 1} of {questions.length}
+              </p>
+              <h4 style={{ margin: '0 0 0.75rem' }}>{questions[currentQuestionIndex]}</h4>
+
+              <textarea
+                value={answers[questions[currentQuestionIndex]] || ''}
+                onChange={(e) => handleAnswerChange(questions[currentQuestionIndex], e.target.value)}
+                placeholder="Type your answer..."
+                rows={4}
+                style={{ width: '100%', padding: '0.5rem', boxSizing: 'border-box', fontFamily: 'inherit' }}
+              />
+
+              <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={() => setCurrentQuestionIndex((i) => i - 1)}
+                  disabled={currentQuestionIndex === 0}
+                >
+                  Back
+                </button>
+
+                {currentQuestionIndex < questions.length - 1 ? (
+                  <button
+                    onClick={() => setCurrentQuestionIndex((i) => i + 1)}
+                    disabled={!(answers[questions[currentQuestionIndex]] || '').trim()}
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSubmitEvaluation}
+                    disabled={!allAnswered || evaluationLoading}
+                  >
+                    {evaluationLoading ? 'Evaluating...' : 'Submit for Evaluation'}
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

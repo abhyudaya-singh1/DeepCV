@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from ollama import chat
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 from typing import Literal
 import fitz  # this is pymupdf's import name
 
@@ -67,6 +67,7 @@ For each notable project, include a one-sentence description drawn directly from
 Rules:
 - Only use information explicitly present in the text. Do not invent, guess, or infer any name, company, skill, or technical detail that isn't literally there.
 - Judge experience_level from context clues (internships and student projects read as Junior; several years of professional roles read as Mid or Senior).
+- For notable_projects, only include personal or academic projects the candidate built — typically listed under a "Projects" heading. Do not include jobs, internships, or work experience entries in notable_projects, even if they involve building, developing, or managing something.
 
 Resume:
 {text}"""
@@ -94,16 +95,19 @@ async def generate_questions(request: QuestionRequest):
     selected_skills = [s for s in request.key_skills if s in request.selected_topics]
     selected_projects = [p for p in request.notable_projects if p.title in request.selected_topics]
 
-    num_questions = len(request.selected_topics) * 3
-
-    class TopicQuestions(BaseModel):
-        questions: list[str] = Field(min_length=num_questions, max_length=num_questions)
-
     projects_text = "\n".join(
         f"- {p.title}: {p.description}" for p in selected_projects
     ) or "None selected."
 
-    question_prompt = f"""Generate exactly {num_questions} interview questions for this candidate, using only the information below.
+    field_names = [f"topic_{i}" for i in range(len(request.selected_topics))]
+    fields = {name: (list[str], Field(min_length=3, max_length=3)) for name in field_names}
+    TopicQuestions = create_model('TopicQuestions', **fields)
+
+    topic_list_text = "\n".join(
+        f"{name}: {topic}" for name, topic in zip(field_names, request.selected_topics)
+    )
+
+    question_prompt = f"""Generate exactly 3 interview questions for each topic below, using only the information provided.
 
 Candidate: {request.candidate_name}
 Experience level: {request.experience_level}
@@ -112,7 +116,11 @@ Skills to cover: {', '.join(selected_skills) or 'None selected.'}
 Projects to cover:
 {projects_text}
 
+Topics (generate exactly 3 questions for each):
+{topic_list_text}
+
 Rules:
+- Every topic must get exactly 3 questions — no topic should get more or fewer.
 - Only ask about the skills and projects listed above — nothing else, even if you can infer the candidate's general field.
 - Only mention a specific technology in connection with a specific project if that project's description above actually names it. If a project's description doesn't specify a technology, ask about that project in general terms instead of guessing.
 - Questions should be appropriate for a {request.experience_level}-level candidate."""
@@ -123,9 +131,13 @@ Rules:
         format=TopicQuestions.model_json_schema(),
         options={'temperature': 0},
     )
-    questions = TopicQuestions.model_validate_json(response['message']['content'])
+    result = TopicQuestions.model_validate_json(response['message']['content'])
 
-    return {"questions": questions.questions}
+    all_questions = []
+    for name in field_names:
+        all_questions.extend(getattr(result, name))
+
+    return {"questions": all_questions}
 
 @app.post("/evaluate")
 async def evaluate_answers(request: EvaluationRequest):
