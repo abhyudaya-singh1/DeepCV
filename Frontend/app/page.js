@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 
 export default function Home() {
+  const { isLoaded, isSignedIn, user } = useUser();
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -100,10 +102,25 @@ export default function Home() {
       setEvaluationLoading(false);
     }
   };
+if (!isLoaded) {
+  return <main style={{ padding: '2rem', maxWidth: 600, margin: '0 auto' }}>Loading...</main>;
+}
 
+if (!isSignedIn) {
+  return (
+    <main style={{ padding: '2rem', maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
+      <h1>Resume Parser</h1>
+      <p>Please sign in above to use this tool.</p>
+    </main>
+  );
+}
   return (
     <main style={{ padding: '2rem', maxWidth: 600, margin: '0 auto' }}>
       <h1>Resume Parser</h1>
+
+      <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>
+  Signed in as {user.primaryEmailAddress?.emailAddress} (userId: {user.id})
+</p>
 
       <input
         type="file"
